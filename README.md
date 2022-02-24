@@ -16,5 +16,5 @@ The benchmark is configured via variables in `main.py`
 The benchmark is intended to be run in a docker container:
 
 1. Set the desired parameters as described above
-2. `docker build mlb .`
+2. `docker build -t mlb .`
 3. `docker run mlb`
