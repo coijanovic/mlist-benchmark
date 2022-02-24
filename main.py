@@ -15,7 +15,10 @@ NUMREP = 25
 NUMENTRIES = 1000
 STEP = NUMENTRIES//NUMPROC
 
+assert(isinstance(STEP, int))
+
 def process_list(memberlist, d_ciphers, verifier_1, verifier_2):
+    assert len(memberlist) == len(d_ciphers)
     for i in range(len(memberlist)):
         entry_plaintext = d_ciphers[i].decrypt(memberlist[i])
 
