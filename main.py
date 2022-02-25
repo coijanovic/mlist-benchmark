@@ -1,5 +1,6 @@
 #! python
 
+import sys
 import time
 from statistics import mean, variance, stdev
 from multiprocessing import Process
@@ -13,10 +14,11 @@ from Crypto.Signature import DSS
 #
 # CONFIGURATION
 #
-NUMPROC = 5
-NUMREP = 25
-NUMENTRIES = 1000
+NUMPROC = int(sys.argv[1])
+NUMREP = int(sys.argv[2])
+NUMENTRIES = int(sys.argv[3])
 STEP = NUMENTRIES//NUMPROC
+DECRYPTONLY = False
 
 assert(isinstance(STEP, int))
 
@@ -33,24 +35,25 @@ def process_list(memberlist, d_ciphers, sig_1, sig_2):
 
         # 1. Decrypt the ith entry using the ith given cipher
         entry_plaintext = d_ciphers[i].decrypt(memberlist[i])
-
-        # 2. Split the entry into data (first 113 Byte)
-        #   the first signature (next 64 Byte)
-        #   and the second signature (last 64 Byte)
-        entry_data = entry_plaintext[:113]
-        entry_sig_1 = entry_plaintext[113:177]
-        entry_sig_2 = entry_plaintext[177:]
         
-        # 3. Try to verify the two signatures with the given sigs
-        h = SHA256.new(entry_data)
-        try:
-            sig_1.verify(h, entry_sig_1)
-        except:
-            print("Verify sig_1 failed")
-        try:
-            sig_2.verify(h, entry_sig_2)
-        except:
-            print("Verify sig_2 failed")
+        if not DECRYPTONLY:
+            # 2. Split the entry into data (first 113 Byte)
+            #   the first signature (next 64 Byte)
+            #   and the second signature (last 64 Byte)
+            entry_data = entry_plaintext[:113]
+            entry_sig_1 = entry_plaintext[113:177]
+            entry_sig_2 = entry_plaintext[177:]
+            
+            # 3. Try to verify the two signatures with the given sigs
+            h = SHA256.new(entry_data)
+            try:
+                sig_1.verify(h, entry_sig_1)
+            except:
+                print("Verify sig_1 failed")
+            try:
+                sig_2.verify(h, entry_sig_2)
+            except:
+                print("Verify sig_2 failed")
 
 #
 # MAIN PART
