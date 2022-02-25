@@ -104,11 +104,19 @@ for r in range(NUMREP):
     print(f'Run {r} complete')
 
 #
-# PRINT RESULTS
+# WRITE RESULTS TO LOG
 #
-print('')
-print(f'Stats for {len(MEMBERLIST)} entries after {NUMREP} runs with {NUMPROC} processes:')
-print('=============================================')
-print(f'Mean:      {mean(p_times)} Seconds')
-print(f'Variance:  {variance(p_times)}')
-print(f'Std. Dev.: {stdev(p_times)}')
+with open('/data/log', 'a') as log:
+    log.write(f'PARAMETERS:\n')
+    log.write(f'===========\n')
+    log.write(f'Entries:      {NUMENTRIES}\n')
+    log.write(f'Processes:    {NUMPROC}\n')
+    log.write(f'Repetitions:  {NUMREP}\n')
+    log.write(f'Decrypt-Only: {DECRYPTONLY}\n')
+    log.write(f'RESULTS:\n')
+    log.write(f'========\n')
+    log.write(f'Mean:      {mean(p_times)} Seconds\n')
+    log.write(f'Variance:  {variance(p_times)}\n')
+    log.write(f'Std. Dev.: {stdev(p_times)}\n')
+    log.write(f'\n')
+
