@@ -3,7 +3,7 @@
 import sys
 import time
 from statistics import mean, variance, stdev
-from multiprocessing import Process
+from pathos.pools import ProcessPool
 
 from Crypto.Hash import SHA256
 from Crypto.Cipher import AES
@@ -14,46 +14,38 @@ from Crypto.Signature import DSS
 #
 # CONFIGURATION
 #
-NUMPROC = int(sys.argv[1])
-NUMREP = int(sys.argv[2])
-NUMENTRIES = int(sys.argv[3])
-STEP = NUMENTRIES//NUMPROC
+NUMREP = int(sys.argv[1])
+NUMENTRIES = int(sys.argv[2])
 DECRYPTONLY = False
-
-assert(isinstance(STEP, int))
 
 #
 # HELPER FUNCTIONS
 #
-# Process the given memberlist
-# d_ciphers = list of ciphers matching the encryption ciphers used for each entry
-# sig_1/2 = signature objects initiated with SKEY1 and SKEY2 respectively
-def process_list(memberlist, d_ciphers, sig_1, sig_2):
-    assert len(memberlist) == len(d_ciphers)
+# Process the given entry which consists of a memberlist ciphertext
+# and the corresponding decryption cipher
+def process_entry(entry):
 
-    for i in range(len(memberlist)):
+    entry_ciphertext, d_cipher = entry
 
-        # 1. Decrypt the ith entry using the ith given cipher
-        entry_plaintext = d_ciphers[i].decrypt(memberlist[i])
+    # 1. Decrypt the ith entry using the ith given cipher
+    entry_plaintext = d_cipher.decrypt(entry_ciphertext)
+    
+    if not DECRYPTONLY:
+        # 2. Split the entry into data (first 113 Byte)
+        #   the first signature (next 64 Byte)
+        #   and the second signature (last 64 Byte)
+        entry_data = entry_plaintext[:113]
+        entry_sig_1 = entry_plaintext[113:177]
+        entry_sig_2 = entry_plaintext[177:]
         
-        if not DECRYPTONLY:
-            # 2. Split the entry into data (first 113 Byte)
-            #   the first signature (next 64 Byte)
-            #   and the second signature (last 64 Byte)
-            entry_data = entry_plaintext[:113]
-            entry_sig_1 = entry_plaintext[113:177]
-            entry_sig_2 = entry_plaintext[177:]
-            
-            # 3. Try to verify the two signatures with the given sigs
-            h = SHA256.new(entry_data)
-            try:
-                sig_1.verify(h, entry_sig_1)
-            except:
-                print("Verify sig_1 failed")
-            try:
-                sig_2.verify(h, entry_sig_2)
-            except:
-                print("Verify sig_2 failed")
+        # 3. Try to verify the two signatures with the given sigs
+        h = SHA256.new(entry_data)
+        try:
+            SIG_1.verify(h, entry_sig_1)
+            SIG_2.verify(h, entry_sig_2)
+            return 0
+        except:
+            return 1
 
 #
 # MAIN PART
@@ -89,34 +81,34 @@ p_times = []
 
 for r in range(NUMREP):
     D_CIPHERS = [AES.new(GMK,AES.MODE_EAX, E_CIPHERS[i].nonce) for i in range(NUMENTRIES)]
+    in_list = zip(MEMBERLIST,D_CIPHERS)
 
     start_time = time.time()
 
-    ps = [Process(target=process_list, args=(MEMBERLIST[i:i+STEP], D_CIPHERS[i:i+STEP], SIG_1, SIG_2)) for i in range(0,NUMENTRIES,STEP)]
-
-    [p.start() for p in ps]
-    [p.join() for p in ps]
+    res = [process_entry(e) for e in in_list]
 
     end_time = time.time()
 
-    p_times.append(end_time-start_time)
+    assert sum(res) == 0
+
+    p_times.append(end_time - start_time)
 
     print(f'Run {r} complete')
 
 #
 # WRITE RESULTS TO LOG
 #
+l = f'''
+PARAMETERS
+==========
+Entries:      {NUMENTRIES}
+Repetitions:  {NUMREP}
+Decrypt-Only: {DECRYPTONLY}
+RESULTS:
+========
+Mean:      {mean(p_times)} Seconds
+Variance:  {variance(p_times)}
+Std. Dev.: {stdev(p_times)}
+'''
 with open('/data/log', 'a') as log:
-    log.write(f'PARAMETERS:\n')
-    log.write(f'===========\n')
-    log.write(f'Entries:      {NUMENTRIES}\n')
-    log.write(f'Processes:    {NUMPROC}\n')
-    log.write(f'Repetitions:  {NUMREP}\n')
-    log.write(f'Decrypt-Only: {DECRYPTONLY}\n')
-    log.write(f'RESULTS:\n')
-    log.write(f'========\n')
-    log.write(f'Mean:      {mean(p_times)} Seconds\n')
-    log.write(f'Variance:  {variance(p_times)}\n')
-    log.write(f'Std. Dev.: {stdev(p_times)}\n')
-    log.write(f'\n')
-
+    log.write(l)
