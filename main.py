@@ -3,7 +3,6 @@
 import sys
 import time
 from statistics import mean, variance, stdev
-from pathos.pools import ProcessPool
 
 from Crypto.Hash import SHA256
 from Crypto.Cipher import AES
