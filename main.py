@@ -88,7 +88,8 @@ for r in range(NUMREP):
 
     end_time = time.time()
 
-    assert sum(res) == 0
+    if not DECRYPTONLY:
+        assert sum(res) == 0
 
     p_times.append(end_time - start_time)
 
