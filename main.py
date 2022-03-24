@@ -5,7 +5,7 @@ import time
 from statistics import mean, variance, stdev
 
 from Crypto.Hash import SHA256
-from Crypto.Cipher import AES
+from Crypto.Cipher import ChaCha20
 from Crypto.Random import get_random_bytes
 from Crypto.PublicKey import ECC
 from Crypto.Signature import DSS
@@ -30,12 +30,12 @@ def process_entry(entry):
     entry_plaintext = d_cipher.decrypt(entry_ciphertext)
     
     if not DECRYPTONLY:
-        # 2. Split the entry into data (first 113 Byte)
+        # 2. Split the entry into data (first 49 Byte)
         #   the first signature (next 64 Byte)
         #   and the second signature (last 64 Byte)
-        entry_data = entry_plaintext[:113]
-        entry_sig_1 = entry_plaintext[113:177]
-        entry_sig_2 = entry_plaintext[177:]
+        entry_data = entry_plaintext[:49]
+        entry_sig_1 = entry_plaintext[49:113]
+        entry_sig_2 = entry_plaintext[113:]
         
         # 3. Try to verify the two signatures with the given sigs
         h = SHA256.new(entry_data)
@@ -50,19 +50,19 @@ def process_entry(entry):
 # MAIN PART
 #
 # 1. GENERATE KEYS
-GMK = get_random_bytes(16)
+GMK = get_random_bytes(32)
 SKEY1 = ECC.generate(curve='P-256')
 SKEY2 = ECC.generate(curve='P-256')
 
 # 2. GENERATE MEMBERLIST
 MEMBERLIST = []
-E_CIPHERS = [AES.new(GMK,AES.MODE_EAX) for i in range(NUMENTRIES)]
+E_CIPHERS = [ChaCha20.new(key=GMK) for i in range(NUMENTRIES)]
 SIG_1 = DSS.new(SKEY1, 'fips-186-3')
 SIG_2 = DSS.new(SKEY2, 'fips-186-3')
 
 for i in range(NUMENTRIES):
 
-    entry_data = get_random_bytes(113)
+    entry_data = get_random_bytes(49)
 
     h = SHA256.new(entry_data)
     entry_sig_1 = SIG_1.sign(h)
@@ -79,7 +79,7 @@ for i in range(NUMENTRIES):
 p_times = []
 
 for r in range(NUMREP):
-    D_CIPHERS = [AES.new(GMK,AES.MODE_EAX, E_CIPHERS[i].nonce) for i in range(NUMENTRIES)]
+    D_CIPHERS = [ChaCha20.new(key=GMK, nonce=E_CIPHERS[i].nonce) for i in range(NUMENTRIES)]
     in_list = zip(MEMBERLIST,D_CIPHERS)
 
     start_time = time.time()
